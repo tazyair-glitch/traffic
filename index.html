@@ -7,6 +7,8 @@
 <title>עומסי תנועה</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root { --bg:#0f1720; --card:#1b2a3a; --line:#2c3e50; --fg:#e8eef4; --mute:#94a3b8; --acc:#33c4ff; --ok:#33c46b; --mid:#f5a623; --bad:#e53935; }
   * { box-sizing: border-box; }
@@ -33,6 +35,9 @@
   .muted { color:var(--mute); font-size:13px; }
   .empty { text-align:center; color:var(--mute); padding:30px 10px; }
   .hidden { display:none !important; }
+  .res { padding:10px; border-bottom:1px solid var(--line); cursor:pointer; font-size:14px; }
+  .res:hover { background:#24384c; }
+  #pickMap { direction:ltr; }
 </style>
 </head>
 <body>
@@ -56,11 +61,17 @@
   <section id="v-edit" class="view">
     <div class="card">
       <label>שם המיקום</label><input id="f-name" placeholder="למשל: צומת גלילות">
-      <label>הדבק קישור מוייז / גוגל מפות (לא חובה)</label><input id="f-link" placeholder="https://waze.com/ul?ll=...">
+      <label>חפש כתובת או מקום</label>
+      <div class="row"><input id="f-search" placeholder="למשל: צומת גלילות" style="flex:3"><button id="doSearch" style="flex:1">חפש</button></div>
+      <div id="searchRes"></div>
+      <p class="muted" style="margin:10px 0 6px">או פשוט לחץ על המפה במקום הרצוי:</p>
+      <div id="pickMap" style="height:300px;border-radius:12px;border:1px solid var(--line)"></div>
+      <details style="margin-top:8px"><summary class="muted">מתקדם: קישור / קואורדינטות</summary>
+      <label>הדבק קישור מוייז / גוגל מפות</label><input id="f-link" placeholder="https://waze.com/ul?ll=...">
       <div class="row">
         <div><label>קו רוחב (lat)</label><input id="f-lat" inputmode="decimal"></div>
         <div><label>קו אורך (lon)</label><input id="f-lon" inputmode="decimal"></div>
-      </div>
+      </div></details>
       <div class="row">
         <div><label>זום (3–17)</label><input id="f-zoom" inputmode="numeric" value="15"></div>
         <div><label>סף "בינוני" (מדד)</label><input id="f-low" inputmode="numeric" value="8"></div>
