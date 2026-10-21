@@ -57,90 +57,23 @@ function openEdit(L) {
   $('f-low').value = L?.low ?? 8;
   $('f-high').value = L?.high ?? 25;
   $('delLoc').classList.toggle('hidden', !L);
-  $('f-search').value = ''; $('searchRes').innerHTML = '';
   show('edit', L ? 'עריכת מיקום' : 'מיקום חדש');
-  initPickMap(L);
 }
-
-// ---------- pick location on a map (Leaflet + OpenStreetMap, free) ----------
-let pickMap = null, pickMarker = null;
-function initPickMap(L) {
-  if (!window.L) return; // no internet / library failed
-  if (!pickMap) {
-    pickMap = window.L.map('pickMap').setView([32.08, 34.80], 11);
-    window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(pickMap);
-    pickMap.on('click', e => setPoint(e.latlng.lat, e.latlng.lng, null, false));
-    pickMap.on('zoomend', () => { if (pickMarker) $('f-zoom').value = Math.max(3, Math.min(17, pickMap.getZoom())); });
-  }
-  setTimeout(() => pickMap.invalidateSize(), 50);
-  if (pickMarker) { pickMarker.remove(); pickMarker = null; }
-  if (L) setPoint(L.lat, L.lon, L.zoom, true);
-  else pickMap.setView([32.08, 34.80], 11);
-}
-function setPoint(lat, lon, zoom, recenter) {
-  $('f-lat').value = (+lat).toFixed(5); $('f-lon').value = (+lon).toFixed(5);
-  if (zoom) $('f-zoom').value = zoom;
-  if (!pickMap) return;
-  if (!pickMarker) pickMarker = window.L.marker([lat, lon]).addTo(pickMap);
-  else pickMarker.setLatLng([lat, lon]);
-  if (recenter) pickMap.setView([lat, lon], Math.max(pickMap.getZoom(), zoom || 15));
-}
-
-// Address search (OpenStreetMap Nominatim, free)
-async function doSearch() {
-  const q = $('f-search').value.trim(); if (!q) return;
-  const box = $('searchRes'); box.innerHTML = '<div class="muted">מחפש…</div>';
-  try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=il&accept-language=he&q=${encodeURIComponent(q)}`);
-    const items = await r.json();
-    if (!items.length) { box.innerHTML = '<div class="muted">לא נמצא. נסה ניסוח אחר או לחץ על המפה.</div>'; return; }
-    box.innerHTML = '';
-    for (const it of items) {
-      const d = document.createElement('div'); d.className = 'res'; d.textContent = it.display_name;
-      d.onclick = () => {
-        setPoint(it.lat, it.lon, 15, true);
-        if (!$('f-name').value) $('f-name').value = it.display_name.split(',')[0];
-        box.innerHTML = '';
-      };
-      box.appendChild(d);
-    }
-  } catch { box.innerHTML = '<div class="muted">החיפוש נכשל – בדוק חיבור לאינטרנט.</div>'; }
-}
-$('doSearch').onclick = doSearch;
-$('f-search').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 
 // Extract lat/lon (and zoom) from a pasted Waze / Google Maps link
 $('f-link').addEventListener('input', e => {
   const s = decodeURIComponent(e.target.value);
   const m = s.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/) ||
             s.match(/lat=(-?\d+\.\d+).*?(?:lon|lng)=(-?\d+\.\d+)/);
-  if (m) setPoint(m[1], m[2], null, true);
-  // Waze short share link: waze.com/ul/h<geohash>
-  const gh = !m && s.match(/waze\.com\/ul\/h([0-9b-hjkmnp-z]{5,})/i);
-  if (gh) { const [la, lo] = geohashDecode(gh[1].toLowerCase()); setPoint(la, lo, null, true); }
+  if (m) { $('f-lat').value = m[1]; $('f-lon').value = m[2]; }
   const z = s.match(/[?&]z(?:oom)?=(\d+)/) || s.match(/,(\d+(?:\.\d+)?)z/);
   if (z) $('f-zoom').value = Math.min(17, Math.round(+z[1]));
 });
 
-function geohashDecode(h) {
-  const B = '0123456789bcdefghjkmnpqrstuvwxyz';
-  let lat = [-90, 90], lon = [-180, 180], even = true;
-  for (const ch of h) {
-    const v = B.indexOf(ch);
-    for (let b = 4; b >= 0; b--) {
-      const r = even ? lon : lat, mid = (r[0] + r[1]) / 2;
-      if ((v >> b) & 1) r[0] = mid; else r[1] = mid;
-      even = !even;
-    }
-  }
-  return [(lat[0] + lat[1]) / 2, (lon[0] + lon[1]) / 2];
-}
-
 $('useGps').onclick = () => {
   if (!navigator.geolocation) return alert('אין גישה למיקום במכשיר הזה');
   navigator.geolocation.getCurrentPosition(
-    p => setPoint(p.coords.latitude, p.coords.longitude, 15, true),
+    p => { $('f-lat').value = p.coords.latitude.toFixed(5); $('f-lon').value = p.coords.longitude.toFixed(5); },
     err => alert('לא הצלחתי לקבל מיקום: ' + err.message), { enableHighAccuracy: true, timeout: 10000 });
 };
 
@@ -148,7 +81,7 @@ $('saveLoc').onclick = () => {
   const lat = parseFloat($('f-lat').value), lon = parseFloat($('f-lon').value);
   const name = $('f-name').value.trim();
   if (!name) return alert('חסר שם');
-  if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return alert('בחר מקום: חפש כתובת או לחץ על המפה');
+  if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return alert('קואורדינטות לא תקינות');
   const data = {
     name, lat, lon,
     zoom: Math.max(3, Math.min(17, parseInt($('f-zoom').value) || 15)),

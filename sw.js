@@ -1,5 +1,5 @@
 // Service worker: offline shell + receiving screenshots shared from the gallery (Share Target)
-const CACHE = 'tlm-shell-v2';
+const CACHE = 'tlm-shell-v1';
 const SHELL = ['./', './index.html', './app.js', './analyzer.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png'];
 
