@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2a3a">
+<title>עומסי תנועה</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --bg:#0f1720; --card:#1b2a3a; --line:#2c3e50; --fg:#e8eef4; --mute:#94a3b8; --acc:#33c4ff; --ok:#33c46b; --mid:#f5a623; --bad:#e53935; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, "Segoe UI", Arial, sans-serif; font-size:16px; }
+  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  main { padding:16px; max-width:720px; margin:0 auto; }
+  .view { display:none; } .view.on { display:block; }
+  button, .btn { background:var(--acc); color:#04121c; border:0; border-radius:10px; padding:11px 14px; font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; text-align:center; }
+  button.ghost, .btn.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  button.danger { background:var(--bad); color:#fff; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .loc { display:flex; align-items:center; gap:12px; cursor:pointer; }
+  .loc .name { font-weight:700; } .loc .sub { color:var(--mute); font-size:13px; }
+  .dot { width:14px; height:14px; border-radius:50%; background:var(--line); flex:none; }
+  label { display:block; margin:10px 0 4px; color:var(--mute); font-size:14px; }
+  input { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); background:#0b121a; color:var(--fg); font-size:16px; }
+  .mapwrap { position:relative; width:100%; aspect-ratio: 3/4; max-height:60vh; border-radius:12px; overflow:hidden; border:1px solid var(--line); background:#000; }
+  .mapwrap iframe { width:100%; height:100%; border:0; }
+  canvas.preview { width:100%; border-radius:12px; border:1px solid var(--line); touch-action:none; display:block; }
+  .verdict { font-size:22px; font-weight:800; padding:10px 14px; border-radius:10px; color:#06121b; text-align:center; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } td { padding:5px 4px; border-bottom:1px solid var(--line); }
+  .muted { color:var(--mute); font-size:13px; }
+  .empty { text-align:center; color:var(--mute); padding:30px 10px; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <button id="backBtn" class="ghost hidden" aria-label="חזרה">→</button>
+  <h1 id="title">עומסי תנועה</h1>
+  <button id="addBtn">+ מיקום</button>
+</header>
+
+<main>
+  <!-- List of saved locations -->
+  <section id="v-list" class="view on">
+    <div id="locList"></div>
+    <div class="card">
+      <div class="muted">ניתוח מהיר: שתף צילום מסך של וייז מהגלריה לאפליקציה הזו, או בחר תמונה:</div>
+      <div class="row" style="margin-top:8px"><button class="ghost" id="quickPick">בחר צילום מסך לניתוח</button></div>
+    </div>
+  </section>
+
+  <!-- Add / edit a location -->
+  <section id="v-edit" class="view">
+    <div class="card">
+      <label>שם המיקום</label><input id="f-name" placeholder="למשל: צומת גלילות">
+      <label>הדבק קישור מוייז / גוגל מפות (לא חובה)</label><input id="f-link" placeholder="https://waze.com/ul?ll=...">
+      <div class="row">
+        <div><label>קו רוחב (lat)</label><input id="f-lat" inputmode="decimal"></div>
+        <div><label>קו אורך (lon)</label><input id="f-lon" inputmode="decimal"></div>
+      </div>
+      <div class="row">
+        <div><label>זום (3–17)</label><input id="f-zoom" inputmode="numeric" value="15"></div>
+        <div><label>סף "בינוני" (מדד)</label><input id="f-low" inputmode="numeric" value="8"></div>
+        <div><label>סף "כבד" (מדד)</label><input id="f-high" inputmode="numeric" value="25"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="ghost" id="useGps">המיקום הנוכחי שלי</button>
+        <button id="saveLoc">שמור</button>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="danger hidden" id="delLoc">מחק מיקום</button></div>
+    </div>
+  </section>
+
+  <!-- Location detail: live map + analysis -->
+  <section id="v-detail" class="view">
+    <div class="mapwrap"><iframe id="wazeFrame" allowfullscreen loading="lazy" title="Waze Live Map"></iframe></div>
+    <div class="row" style="margin-top:10px">
+      <a class="btn ghost" id="openWaze" target="_blank" rel="noopener">פתח באפליקציית וייז</a>
+      <button class="ghost" id="editLoc">הגדרות</button>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row"><button id="pickImg">צילום מסך לניתוח</button></div>
+      <p class="muted">טיפ: צלם מסך של המפה למעלה (או מוייז), ואז בחר אותו כאן – או שתף אותו מהגלריה ישירות לאפליקציה.</p>
+      <div id="result" class="hidden">
+        <div id="verdict" class="verdict"></div>
+        <p class="muted">גרור על התמונה כדי לסמן את האזור שמעניין אותך.</p>
+        <canvas id="preview" class="preview"></canvas>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="saveRoi">שמור אזור למיקום</button>
+          <button class="ghost" id="clearRoi">נקה אזור</button>
+        </div>
+        <table id="stats" style="margin-top:10px"></table>
+      </div>
+    </div>
+
+    <div class="card"><b>היסטוריה</b><table id="history"></table></div>
+  </section>
+</main>
+
+<input type="file" id="fileIn" accept="image/*" class="hidden">
+<script type="module" src="app.js"></script>
+</body>
+</html>
